@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Life Stats"/>
+  <meta name="theme-color" content="#060a14"/>
+  <title>Life Stats</title>
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23060a14'/%3E%3Ctext y='72' x='50' text-anchor='middle' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    html,body{height:100%;background:#060a14;color:#e2e8f0;font-family:system-ui,-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+    :root{--safe-top:env(safe-area-inset-top,0px);--safe-bot:env(safe-area-inset-bottom,0px);--lc:#818CF8;--lc15:rgba(129,140,248,.15);--lc33:rgba(129,140,248,.33)}
+    input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+    input,textarea,button,select{-webkit-appearance:none;font-family:inherit}
+    ::-webkit-scrollbar{display:none}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+
+    #app{max-width:430px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+
+    /* HEADER */
+    .header{padding:calc(var(--safe-top) + 14px) 16px 12px;background:rgba(6,10,20,.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid rgba(255,255,255,.05);position:sticky;top:0;z-index:50}
+    .header-inner{display:flex;justify-content:space-between;align-items:center}
+    .header h1{font-size:20px;font-weight:900;letter-spacing:-.8px;color:#f1f5f9}
+    .header .date{font-size:11px;color:rgba(255,255,255,.3);margin-top:2px}
+    .lvl-badge{background:var(--lc15);border:1px solid var(--lc33);border-radius:12px;padding:8px 14px;text-align:right;cursor:pointer;transition:all .2s}
+    .lvl-badge .lbl{font-size:10px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1px}
+    .lvl-badge .val{font-size:17px;font-weight:900;letter-spacing:-.5px}
+    .lvl-badge .val span{font-size:11px;font-weight:600}
+    .exp-track{height:4px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-top:5px}
+    .exp-fill{height:100%;border-radius:99px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+    .quick{display:flex;gap:7px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.04)}
+    .qpill{flex:1;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:9px 6px;text-align:center}
+    .qpill .v{font-size:16px;font-weight:900}
+    .qpill .l{font-size:9px;color:rgba(255,255,255,.25);margin-top:1px;text-transform:uppercase;letter-spacing:.5px}
+    .nav{display:flex;border-bottom:1px solid rgba(255,255,255,.05);overflow-x:auto}
+    .nav button{flex:1;min-width:60px;padding:11px 0;background:none;border:none;border-bottom:2px solid transparent;color:rgba(255,255,255,.25);font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
+    .nav button.active{border-bottom-color:var(--lc);color:var(--lc)}
+    .content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(88px + var(--safe-bot))}
+
+    /* CARDS */
+    .card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:14px 16px;margin-bottom:10px}
+    .cat-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:12px 14px;margin-bottom:8px}
+    .cat-grid{display:grid;grid-template-columns:32px 1fr 46px;align-items:center;gap:10px}
+    .cat-input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:9px;padding:8px 12px;color:#f1f5f9;font-size:16px;font-weight:600;outline:none}
+    .cat-input:focus{border-color:rgba(255,255,255,.2)}
+    .prog-track{height:3px;background:rgba(255,255,255,.06);border-radius:99px;margin-top:7px;overflow:hidden}
+    .prog-fill{height:100%;border-radius:99px;transition:width .4s ease}
+    .sec{font-size:10px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px}
+    .save-btn{display:block;width:100%;padding:15px;border-radius:14px;border:none;color:#fff;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:.3px;margin-bottom:20px;transition:opacity .15s;background:linear-gradient(135deg,#6C63FF,#8B5CF6,#a855f7);box-shadow:0 4px 24px rgba(108,99,255,.35)}
+    .save-btn:active{opacity:.85}
+    .note-area{width:100%;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:12px 14px;color:rgba(255,255,255,.8);font-size:14px;outline:none;resize:none;line-height:1.6}
+    .note-area:focus{border-color:rgba(255,255,255,.15)}
+
+    /* HISTORY */
+    .hcard{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px}
+    .hbadge{width:42px;height:42px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;border-width:1.5px;border-style:solid}
+    .htag{border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700}
+    .hnote{font-size:11px;color:rgba(255,255,255,.3);margin-top:6px;font-style:italic;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+    /* LEVEL */
+    .level-hero{border-radius:20px;padding:24px 20px;margin-bottom:12px;text-align:center;position:relative;overflow:hidden}
+    .level-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;margin-bottom:6px;border:1px solid rgba(255,255,255,.04);transition:all .2s}
+    .level-badge{width:32px;height:32px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;border-width:1.5px;border-style:solid}
+    .stat3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+    .stat3c{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:14px 10px;text-align:center}
+
+    /* AUTH */
+    .auth-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;padding:32px 24px;background:#060a14}
+    .auth-logo{font-size:56px;margin-bottom:8px}
+    .auth-title{font-size:28px;font-weight:900;letter-spacing:-1px;color:#f1f5f9;margin-bottom:4px}
+    .auth-sub{font-size:13px;color:rgba(255,255,255,.3);margin-bottom:32px;text-align:center}
+    .auth-card{width:100%;max-width:360px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:24px}
+    .auth-input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:13px 16px;color:#f1f5f9;font-size:16px;outline:none;margin-bottom:12px}
+    .auth-input:focus{border-color:rgba(129,140,248,.5)}
+    .auth-input::placeholder{color:rgba(255,255,255,.25)}
+    .auth-btn{width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#6C63FF,#8B5CF6);color:#fff;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:12px;transition:opacity .15s}
+    .auth-btn:active{opacity:.8}
+    .auth-switch{font-size:13px;color:rgba(255,255,255,.3);text-align:center;cursor:pointer}
+    .auth-switch span{color:#818CF8;font-weight:700}
+    .auth-err{font-size:12px;color:#F87171;margin-bottom:10px;text-align:center;min-height:18px}
+
+    /* FRIENDS */
+    .friend-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:14px}
+    .friend-avatar{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;flex-shrink:0}
+    .code-box{background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.25);border-radius:12px;padding:12px 16px;text-align:center;margin-bottom:12px;cursor:pointer}
+    .code-val{font-size:28px;font-weight:900;color:#818CF8;letter-spacing:4px;font-variant-numeric:tabular-nums}
+    .code-hint{font-size:11px;color:rgba(255,255,255,.3);margin-top:4px}
+
+    /* LEADERBOARD */
+    .lb-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+    .lb-rank{width:32px;text-align:center;font-size:18px;font-weight:900;flex-shrink:0}
+    .lb-avatar{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+
+    /* ACHIEVEMENTS */
+    .ach-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:14px}
+    .ach-icon{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+    .ach-locked{opacity:.3;filter:grayscale(1)}
+
+    /* TABBAR */
+    .tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:rgba(6,10,20,.95);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-top:1px solid rgba(255,255,255,.06);display:flex;padding:8px 0 calc(8px + var(--safe-bot));z-index:100}
+    .tbtn{flex:1;background:none;border:none;color:rgba(255,255,255,.2);font-size:9px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:4px;transition:color .2s}
+    .tbtn.active{color:var(--lc)}
+    .tbtn .ti{font-size:20px}
+
+    /* TOAST */
+    .toast{position:fixed;bottom:calc(96px + var(--safe-bot));left:50%;transform:translateX(-50%);background:rgba(30,41,59,.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);color:#34D399;padding:11px 26px;border-radius:100px;font-size:13px;font-weight:700;border:1px solid rgba(52,211,153,.2);box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:999;pointer-events:none;display:none}
+    .toast.show{display:block;animation:toastIn .25s cubic-bezier(.34,1.56,.64,1)}
+    .loader{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.1);border-top-color:#818CF8;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+    .empty{text-align:center;padding:48px 0;color:rgba(255,255,255,.2)}
+    .empty .ei{font-size:44px;margin-bottom:10px}
+    .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+    .toggle{width:44px;height:26px;border-radius:99px;border:none;cursor:pointer;position:relative;transition:background .3s;flex-shrink:0}
+    .toggle::after{content:'';position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .3s}
+    .toggle.on{background:#818CF8}
+    .toggle.on::after{transform:translateX(18px)}
+    .toggle.off{background:rgba(255,255,255,.15)}
+    .input-row{margin-bottom:12px}
+    .input-lbl{font-size:12px;color:rgba(255,255,255,.4);margin-bottom:6px;font-weight:600}
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="main-ui" style="display:none;flex-direction:column;height:100%">
+    <div class="header">
+      <div class="header-inner">
+        <div>
+          <h1>Life Stats</h1>
+          <div class="date" id="hdate"></div>
+        </div>
+        <div class="lvl-badge" id="lvlbadge" onclick="setView('level')">
+          <div class="lbl">Level</div>
+          <div class="val" id="lvlval">–</div>
+          <div class="exp-track"><div class="exp-fill" id="expfill" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="quick">
+      <div class="qpill"><div class="v" id="qs-avg">–</div><div class="l">Ø Score</div></div>
+      <div class="qpill"><div class="v" id="qs-days">0</div><div class="l">Tage</div></div>
+      <div class="qpill"><div class="v" id="qs-today">–</div><div class="l">Heute</div></div>
+      <div class="qpill"><div class="v" id="qs-streak">–</div><div class="l">Streak</div></div>
+    </div>
+    <div class="nav" id="nav">
+      <button class="active" onclick="setView('today')">Heute</button>
+      <button onclick="setView('level')">Level</button>
+      <button onclick="setView('history')">Verlauf</button>
+      <button onclick="setView('friends')">Freunde</button>
+      <button onclick="setView('leaderboard')">Ranking</button>
+    </div>
+    <div class="content" id="content"></div>
+    <div class="tabbar">
+      <button class="tbtn active" id="tb-today" onclick="setView('today')"><span class="ti">📝</span>Heute</button>
+      <button class="tbtn" id="tb-level" onclick="setView('level')"><span class="ti">⚡</span>Level</button>
+      <button class="tbtn" id="tb-history" onclick="setView('history')"><span class="ti">📅</span>Verlauf</button>
+      <button class="tbtn" id="tb-friends" onclick="setView('friends')"><span class="ti">👥</span>Freunde</button>
+      <button class="tbtn" id="tb-leaderboard" onclick="setView('leaderboard')"><span class="ti">🏆</span>Ranking</button>
+    </div>
+  </div>
+  <div id="auth-ui"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// SUPABASE CONFIG – ersetze diese Werte mit deinen eigenen!
+// ═══════════════════════════════════════════════════════════
+const SUPABASE_URL = 'DEINE_SUPABASE_URL';
+const SUPABASE_KEY = 'DEIN_SUPABASE_ANON_KEY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ─── CATEGORIES (humane Werte) ────────────────────────────
+const CATS = [
+  {id:'sleep',     label:'Schlaf',     unit:'h',  icon:'🌙',max:10, optimal:8,  bell:true,  color:'#818CF8'},
+  {id:'water',     label:'Wasser',     unit:'L',  icon:'💧',max:3,  optimal:2.5,bell:false, color:'#38BDF8'},
+  {id:'sport',     label:'Sport',      unit:'min',icon:'🏋️',max:90, optimal:45, bell:false, color:'#34D399'},
+  {id:'focus',     label:'Deep Work',  unit:'h',  icon:'🧠',max:6,  optimal:3,  bell:false, color:'#F59E0B'},
+  {id:'mood',      label:'Stimmung',   unit:'/10',icon:'😊',max:10, optimal:10, bell:false, color:'#F472B6'},
+  {id:'steps',     label:'Schritte',   unit:'k',  icon:'👟',max:15, optimal:8,  bell:false, color:'#A78BFA'},
+  {id:'reading',   label:'Lesen',      unit:'min',icon:'📚',max:60, optimal:20, bell:false, color:'#FB923C'},
+  {id:'meditation',label:'Meditation', unit:'min',icon:'🧘',max:30, optimal:10, bell:false, color:'#2DD4BF'},
+];
+
+// ─── LEVELS ──────────────────────────────────────────────
+const LEVELS = [
+  {level:1, title:'Einsteiger',        minExp:0},
+  {level:2, title:'Anfänger',          minExp:100},
+  {level:3, title:'Lernender',         minExp:250},
+  {level:4, title:'Aufsteiger',        minExp:450},
+  {level:5, title:'Fokussierter',      minExp:700},
+  {level:6, title:'Disziplinierter',   minExp:1000},
+  {level:7, title:'Routinier',         minExp:1400},
+  {level:8, title:'Beständiger',       minExp:1900},
+  {level:9, title:'Fortgeschrittener', minExp:2500},
+  {level:10,title:'Profi',             minExp:3200},
+  {level:11,title:'Experte',           minExp:4100},
+  {level:12,title:'Meister',           minExp:5200},
+  {level:13,title:'Elite',             minExp:6500},
+  {level:14,title:'Champion',          minExp:8000},
+  {level:15,title:'Legende',           minExp:10000},
+];
+
+// ─── ACHIEVEMENTS ─────────────────────────────────────────
+const ACHIEVEMENTS = [
+  {id:'first_day',   icon:'🌱', title:'Erster Schritt',    desc:'Ersten Tag eingetragen',         check:(days,streak)=>Object.keys(days).length>=1},
+  {id:'streak3',     icon:'🔥', title:'On Fire',           desc:'3 Tage Streak',                  check:(days,streak)=>streak>=3},
+  {id:'streak7',     icon:'⚡', title:'Wochenkrieger',     desc:'7 Tage Streak',                  check:(days,streak)=>streak>=7},
+  {id:'streak30',    icon:'💎', title:'Monatsheld',        desc:'30 Tage Streak',                 check:(days,streak)=>streak>=30},
+  {id:'streak100',   icon:'👑', title:'Unstoppable',       desc:'100 Tage Streak',                check:(days,streak)=>streak>=100},
+  {id:'perfect',     icon:'⭐', title:'Perfekter Tag',     desc:'Score 100 erreicht',             check:(days)=>Object.values(days).some(d=>calcScore(d)===100)},
+  {id:'score90',     icon:'🎯', title:'Fast perfekt',      desc:'Score 90+ erreicht',             check:(days)=>Object.values(days).some(d=>(calcScore(d)||0)>=90)},
+  {id:'days7',       icon:'📅', title:'Eine Woche',        desc:'7 Tage eingetragen',             check:(days)=>Object.keys(days).length>=7},
+  {id:'days30',      icon:'📆', title:'Ein Monat',         desc:'30 Tage eingetragen',            check:(days)=>Object.keys(days).length>=30},
+  {id:'days100',     icon:'🏆', title:'100 Tage',          desc:'100 Tage eingetragen',           check:(days)=>Object.keys(days).length>=100},
+  {id:'social',      icon:'👥', title:'Kein Einzelkämpfer',desc:'Ersten Freund hinzugefügt',      check:(days,streak,friends)=>friends>=1},
+  {id:'level5',      icon:'🚀', title:'Abheben',           desc:'Level 5 erreicht',               check:(days)=>getLevelInfo(getTotalExp(days)).cur.level>=5},
+  {id:'level10',     icon:'🌟', title:'Experte',           desc:'Level 10 erreicht',              check:(days)=>getLevelInfo(getTotalExp(days)).cur.level>=10},
+  {id:'level15',     icon:'🏅', title:'Legende',           desc:'Maximales Level erreicht',       check:(days)=>getLevelInfo(getTotalExp(days)).cur.level>=15},
+];
+
+const LVL_COLORS = ['#818CF8','#38BDF8','#34D399','#F59E0B','#F472B6','#c084fc'];
+const AVATARS = ['😎','🦁','🐺','🦊','🐲','🦅','🌊','⚡','🔥','💫','🎯','🏆'];
+
+// ─── STATE ────────────────────────────────────────────────
+let currentUser = null;
+let userProfile = null;
+let days = {};
+let friends = [];
+let currentView = 'today';
+let draft = {};
+let inLeaderboard = true;
+let db = null;
+
+// ─── INDEXEDDB ───────────────────────────────────────────
+function openDB() {
+  return new Promise((res,rej)=>{
+    const r = indexedDB.open('lifestats',1);
+    r.onupgradeneeded = e => e.target.result.createObjectStore('data',{keyPath:'key'});
+    r.onsuccess = e => res(e.target.result);
+    r.onerror = e => rej(e);
+  });
+}
+async function dbGet(key) {
+  if (!db) db = await openDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction('data','readonly');
+    const r = tx.objectStore('data').get(key);
+    r.onsuccess = ()=> res(r.result?.value);
+    r.onerror = rej;
+  });
+}
+async function dbSet(key,value) {
+  if (!db) db = await openDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction('data','readwrite');
+    tx.objectStore('data').put({key,value});
+    tx.oncomplete = res;
+    tx.onerror = rej;
+  });
+}
+
+// ─── SCORING ─────────────────────────────────────────────
+function catScore(cat,val){
+  const v=parseFloat(val||0);
+  if(v<=0) return 0;
+  if(cat.bell){const r=v/cat.optimal;return r<=1?r:Math.max(0,1-(r-1)*0.6);}
+  return Math.min(v/cat.optimal,1);
+}
+function calcScore(entry){
+  if(!entry) return null;
+  const vals=CATS.map(c=>catScore(c,entry[c.id]));
+  if(!vals.some(v=>v>0)) return null;
+  return Math.round(vals.reduce((a,b)=>a+b,0)/CATS.length*100);
+}
+function scoreColor(s){return s>=80?'#34D399':s>=60?'#F59E0B':s>=40?'#FB923C':'#F87171';}
+function calcExp(entry,score){
+  if(!entry||score==null) return 0;
+  return Math.round(score*1.5)+(score>=90?25:score>=80?10:0);
+}
+function getTotalExp(daysObj){
+  const d=daysObj||days;
+  return Object.keys(d).reduce((acc,k)=>{const sc=calcScore(d[k]);return acc+calcExp(d[k],sc);},0);
+}
+function getLevelInfo(totalExp){
+  let cur=LEVELS[0],nxt=LEVELS[1];
+  for(let i=LEVELS.length-1;i>=0;i--){if(totalExp>=LEVELS[i].minExp){cur=LEVELS[i];nxt=LEVELS[i+1]||null;break;}}
+  const inLevel=totalExp-cur.minExp,needed=nxt?nxt.minExp-cur.minExp:1;
+  return{cur,nxt,inLevel,needed,progress:nxt?Math.min(inLevel/needed,1):1,totalExp};
+}
+function lvlColor(level){return LVL_COLORS[(level-1)%LVL_COLORS.length];}
+function getStreak(){
+  let s=0;const d=new Date();
+  while(days[d.toISOString().slice(0,10)]){s++;d.setDate(d.getDate()-1);}
+  return s;
+}
+function todayStr(){return new Date().toISOString().slice(0,10);}
+function fmtDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('de-DE',{weekday:'short',day:'numeric',month:'short'});}
+function genCode(){return Math.random().toString(36).slice(2,8).toUpperCase();}
+function avatarBg(seed){const colors=['#6C63FF','#38BDF8','#34D399','#F59E0B','#F472B6','#FB923C'];return colors[seed%colors.length];}
+
+// ─── TOAST ───────────────────────────────────────────────
+let toastTimer;
+function showToast(msg,isErr=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.color=isErr?'#F87171':'#34D399';
+  t.style.borderColor=isErr?'rgba(248,113,113,.2)':'rgba(52,211,153,.2)';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ─── HEADER ──────────────────────────────────────────────
+function updateHeader(){
+  document.getElementById('hdate').textContent=new Date().toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'});
+  const sorted=Object.keys(days).sort((a,b)=>b.localeCompare(a));
+  const streak=getStreak();
+  const todayScore=calcScore({...draft});
+  const scores=sorted.slice(0,14).map(d=>calcScore(days[d])).filter(s=>s!=null);
+  const avg=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):null;
+  const totalExp=getTotalExp();
+  const li=getLevelInfo(totalExp);
+  const lc=lvlColor(li.cur.level);
+  document.documentElement.style.setProperty('--lc',lc);
+  document.documentElement.style.setProperty('--lc15',lc+'26');
+  document.documentElement.style.setProperty('--lc33',lc+'55');
+  document.getElementById('lvlval').innerHTML=`${li.cur.level} <span>${li.cur.title}</span>`;
+  document.getElementById('lvlval').style.color=lc;
+  const ef=document.getElementById('expfill');
+  ef.style.width=(li.progress*100)+'%';
+  ef.style.background=`linear-gradient(90deg,${lc},#c084fc)`;
+  ef.style.boxShadow=`0 0 10px ${lc}88`;
+  const as=document.getElementById('qs-avg');as.textContent=avg??'–';as.style.color=avg?scoreColor(avg):'rgba(255,255,255,.25)';
+  document.getElementById('qs-days').textContent=sorted.length;
+  const ts=document.getElementById('qs-today');ts.textContent=todayScore??'–';ts.style.color=todayScore?scoreColor(todayScore):'rgba(255,255,255,.25)';
+  const st=document.getElementById('qs-streak');st.textContent=streak>0?'🔥'+streak:'–';st.style.color=streak>0?'#F59E0B':'rgba(255,255,255,.25)';
+  document.querySelectorAll('.nav button').forEach((b,i)=>{b.classList.toggle('active',['today','level','history','friends','leaderboard'][i]===currentView);});
+  ['today','level','history','friends','leaderboard'].forEach(v=>{const el=document.getElementById('tb-'+v);if(el)el.classList.toggle('active',v===currentView);});
+}
+
+// ─── SVG HELPERS ─────────────────────────────────────────
+function ringHTML(pct,color,size=46){
+  const r=(size-7)/2,circ=2*Math.PI*r,dash=Math.min(pct,1)*circ;
+  return `<svg width="${size}" height="${size}" style="transform:rotate(-90deg);display:block">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="5"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="5"
+      stroke-dasharray="${dash} ${circ}" stroke-linecap="round"/>
+  </svg>`;
+}
+function scoreArcHTML(score){
+  const W=170,r=66,circ=Math.PI*r;
+  const col=score!=null?scoreColor(score):'rgba(255,255,255,.08)';
+  const dash=score!=null?score/100*circ:0;
+  return `<svg width="${W}" height="86" viewBox="0 0 ${W} 86">
+    <defs><linearGradient id="ag" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${col}" stop-opacity=".6"/><stop offset="100%" stop-color="${col}"/>
+    </linearGradient></defs>
+    <path d="M 12 82 A ${r} ${r} 0 0 1 ${W-12} 82" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="10" stroke-linecap="round"/>
+    <path d="M 12 82 A ${r} ${r} 0 0 1 ${W-12} 82" fill="none" stroke="url(#ag)" stroke-width="10" stroke-linecap="round" stroke-dasharray="${dash} ${circ}"/>
+    <text x="${W/2}" y="66" text-anchor="middle" fill="${col}" style="font-size:34px;font-weight:900;font-family:system-ui">${score??'–'}</text>
+    <text x="${W/2}" y="82" text-anchor="middle" fill="rgba(255,255,255,.3)" style="font-size:11px;font-family:system-ui;letter-spacing:1px">TAGESSCORE</text>
+  </svg>`;
+}
+function sparklineHTML(data){
+  if(data.length<2) return '<p style="font-size:12px;color:rgba(255,255,255,.2);padding:10px 0">Mehr Tage eintragen für Verlauf.</p>';
+  const W=280,H=52,max=Math.max(...data,1),min=Math.min(...data,0),range=max-min||1;
+  const pt=(s,i)=>[i/(data.length-1)*W,H-8-(s-min)/range*(H-16)];
+  const pts=data.map((s,i)=>pt(s,i).join(',')).join(' ');
+  const area=`M ${pt(data[0],0).join(',')} ${data.slice(1).map((s,i)=>'L '+pt(s,i+1).join(',')).join(' ')} L ${W} ${H} L 0 ${H} Z`;
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">
+    <defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6C63FF" stop-opacity=".3"/><stop offset="100%" stop-color="#6C63FF" stop-opacity="0"/></linearGradient></defs>
+    <path d="${area}" fill="url(#sg)"/>
+    <polyline points="${pts}" fill="none" stroke="#818CF8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    ${data.map((s,i)=>{const[x,y]=pt(s,i);return`<circle cx="${x}" cy="${y}" r="3.5" fill="#060a14" stroke="#818CF8" stroke-width="2"/><text x="${x}" y="${y-8}" text-anchor="middle" fill="rgba(255,255,255,.35)" style="font-size:9px;font-family:system-ui">${s}</text>`;}).join('')}
+  </svg>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════
+function renderAuth(mode='login'){
+  const isLogin=mode==='login';
+  document.getElementById('auth-ui').innerHTML=`
+    <div class="auth-wrap">
+      <div class="auth-logo">⚡</div>
+      <div class="auth-title">Life Stats</div>
+      <div class="auth-sub">${isLogin?'Willkommen zurück!':'Starte deine Journey'}</div>
+      <div class="auth-card">
+        ${!isLogin?`<div class="input-row"><div class="input-lbl">Dein Name</div>
+          <input class="auth-input" id="auth-name" placeholder="Max Mustermann" type="text"/></div>`:''}
+        <div class="input-row"><div class="input-lbl">E-Mail</div>
+          <input class="auth-input" id="auth-email" placeholder="deine@email.de" type="email" autocomplete="email"/></div>
+        <div class="input-row"><div class="input-lbl">Passwort</div>
+          <input class="auth-input" id="auth-pw" placeholder="••••••••" type="password" autocomplete="${isLogin?'current-password':'new-password'}"/></div>
+        <div class="auth-err" id="auth-err"></div>
+        <button class="auth-btn" onclick="doAuth('${mode}')">${isLogin?'Einloggen':'Account erstellen'}</button>
+        <div class="auth-switch">${isLogin?'Noch kein Account?':'Bereits registriert?'}
+          <span onclick="renderAuth('${isLogin?'register':'login'}')">${isLogin?'Jetzt registrieren':'Einloggen'}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function doAuth(mode){
+  const email=document.getElementById('auth-email').value.trim();
+  const pw=document.getElementById('auth-pw').value;
+  const errEl=document.getElementById('auth-err');
+  errEl.textContent='';
+  if(!email||!pw){errEl.textContent='Bitte alle Felder ausfüllen.';return;}
+  const btn=document.querySelector('.auth-btn');
+  btn.innerHTML='<span class="loader"></span>Laden…';btn.disabled=true;
+
+  if(mode==='login'){
+    const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
+    if(error){errEl.textContent='Falsche E-Mail oder Passwort.';btn.innerHTML='Einloggen';btn.disabled=false;return;}
+  } else {
+    const name=document.getElementById('auth-name').value.trim()||email.split('@')[0];
+    const{data,error}=await sb.auth.signUp({email,password:pw,options:{data:{display_name:name}}});
+    if(error){errEl.textContent=error.message;btn.innerHTML='Account erstellen';btn.disabled=false;return;}
+  }
+  // onAuthStateChange will handle the rest
+}
+
+async function doLogout(){
+  await sb.auth.signOut();
+  currentUser=null;userProfile=null;days={};friends=[];
+  document.getElementById('main-ui').style.display='none';
+  document.getElementById('auth-ui').style.display='';
+  renderAuth('login');
+}
+
+// ═══════════════════════════════════════════════════════
+// PROFILE & DATA LOAD
+// ═══════════════════════════════════════════════════════
+async function loadProfile(user){
+  // Get or create profile
+  let{data:prof}=await sb.from('profiles').select('*').eq('id',user.id).single();
+  if(!prof){
+    const code=genCode();
+    const avatar=AVATARS[Math.floor(Math.random()*AVATARS.length)];
+    const name=user.user_metadata?.display_name||user.email.split('@')[0];
+    const{data:newProf}=await sb.from('profiles').insert({id:user.id,username:name,friend_code:code,avatar,in_leaderboard:true,total_exp:0,streak:0}).select().single();
+    prof=newProf;
+  }
+  userProfile=prof;
+  inLeaderboard=prof.in_leaderboard;
+
+  // Load days from IndexedDB (local)
+  const localKey='lifestats_days_'+user.id;
+  try{const stored=await dbGet(localKey);if(stored)days=JSON.parse(stored);}catch{}
+
+  // Load friends
+  await loadFriends();
+}
+
+async function loadFriends(){
+  if(!currentUser) return;
+  const{data}=await sb.from('friendships').select('friend_id,profiles!friendships_friend_id_fkey(id,username,avatar,total_exp,streak,in_leaderboard)').eq('user_id',currentUser.id);
+  friends=data||[];
+}
+
+async function saveDays(){
+  if(!currentUser) return;
+  const localKey='lifestats_days_'+currentUser.id;
+  await dbSet(localKey,JSON.stringify(days));
+  // Update total_exp and streak in supabase
+  const totalExp=getTotalExp();
+  const streak=getStreak();
+  await sb.from('profiles').update({total_exp:totalExp,streak}).eq('id',currentUser.id);
+}
+
+// ═══════════════════════════════════════════════════════
+// VIEWS
+// ═══════════════════════════════════════════════════════
+function renderToday(){
+  const today=todayStr();
+  draft=days[today]?{...days[today]}:{};
+  const score=calcScore(draft);
+  const exp=calcExp(draft,score);
+  const lc=lvlColor(getLevelInfo(getTotalExp()).cur.level);
+  const saved=!!days[today];
+
+  let h=`<div style="animation:fadeUp .3s ease">`;
+  h+=`<div style="margin:16px 16px 0;background:linear-gradient(135deg,${lc}12,${lc}06);border:1px solid ${lc}1e;border-radius:20px;padding:20px 20px 18px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:-50px;right:-50px;width:180px;height:180px;border-radius:50%;background:${lc}0a"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;position:relative">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">
+          ${new Date().toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'})}
+        </div>
+        ${scoreArcHTML(score)}
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Heute EXP</div>
+        <div style="font-size:28px;font-weight:900;color:#818CF8;letter-spacing:-1px">+${exp}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.3);margin-top:2px">${saved?'✓ gespeichert':'noch offen'}</div>
+      </div>
+    </div>
+  </div>`;
+
+  h+=`<div style="padding:16px 16px 0"><div class="sec">Eintragen</div>`;
+  CATS.forEach(c=>{
+    const val=draft[c.id]||'';
+    const sc=catScore(c,val);
+    const over=c.bell&&parseFloat(val||0)>c.optimal;
+    const barColor=over?'linear-gradient(90deg,#F59E0B,#FB923C)':`linear-gradient(90deg,${c.color}99,${c.color})`;
+    h+=`<div class="cat-card">
+      <div class="cat-grid">
+        <div style="font-size:20px;text-align:center">${c.icon}</div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:13px;font-weight:700;color:rgba(255,255,255,.8)">${c.label}</span>
+            <span style="font-size:10px;font-weight:600;color:${over?'#FB923C':'rgba(255,255,255,.2)'}">
+              ${c.bell?(over?'⚠ zu viel':'optimal: '+c.optimal+c.unit):'max: '+c.optimal+c.unit}
+            </span>
+          </div>
+          <input class="cat-input" type="number" inputmode="decimal" placeholder="0" value="${val}"
+            oninput="onCatInput('${c.id}',this.value)"
+            style="border-color:${val?c.color+'44':'rgba(255,255,255,.07)'}"/>
+          <div class="prog-track">
+            <div class="prog-fill" id="prog-${c.id}" style="width:${sc*100}%;background:${barColor};box-shadow:${val?`0 0 8px ${c.color}55`:'none'}"></div>
+          </div>
+        </div>
+        <div>
+          <div id="ring-${c.id}">${ringHTML(sc,over?'#FB923C':c.color)}</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.25);margin-top:2px;text-align:center">${c.unit}</div>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  h+=`<div style="margin-top:4px;margin-bottom:10px">
+    <div class="sec">Notiz</div>
+    <textarea class="note-area" rows="3" placeholder="Highlights, Reflexion, Gedanken…" oninput="draft.note=this.value">${draft.note||''}</textarea>
+  </div>
+  <button class="save-btn" onclick="saveToday()">${saved?'✓ Aktualisieren':'Speichern'}</button>
+  </div></div>`;
+  document.getElementById('content').innerHTML=h;
+}
+
+function onCatInput(id,val){
+  draft[id]=val;
+  const cat=CATS.find(c=>c.id===id);
+  const sc=catScore(cat,val);
+  const over=cat.bell&&parseFloat(val||0)>cat.optimal;
+  const ringColor=over?'#FB923C':cat.color;
+  const barColor=over?'linear-gradient(90deg,#F59E0B,#FB923C)':`linear-gradient(90deg,${cat.color}99,${cat.color})`;
+  const prog=document.getElementById('prog-'+id);
+  if(prog){prog.style.width=(sc*100)+'%';prog.style.background=barColor;prog.style.boxShadow=val?`0 0 8px ${cat.color}55`:'none';}
+  const ring=document.getElementById('ring-'+id);
+  if(ring) ring.innerHTML=ringHTML(sc,ringColor);
+  updateHeader();
+}
+
+async function saveToday(){
+  const today=todayStr();
+  days[today]={...draft,_savedAt:new Date().toISOString()};
+  await saveDays();
+  showToast('✓ Gespeichert!');
+  updateHeader();
+  renderToday();
+}
+
+function renderLevel(){
+  const totalExp=getTotalExp();
+  const li=getLevelInfo(totalExp);
+  const lc=lvlColor(li.cur.level);
+  const sorted=Object.keys(days).sort((a,b)=>b.localeCompare(a));
+  const streak=getStreak();
+  const scores=sorted.slice(0,14).map(d=>calcScore(days[d])).filter(s=>s!=null);
+  const avg=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):null;
+  const unlockedAch=ACHIEVEMENTS.filter(a=>a.check(days,streak,friends.length));
+
+  let h=`<div style="padding:16px 16px 0;animation:fadeUp .3s ease">`;
+  h+=`<div class="level-hero" style="background:linear-gradient(135deg,${lc}15,${lc}06);border:1px solid ${lc}22">
+    <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:${lc}08"></div>
+    <div style="position:relative">
+      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px">Level</div>
+      <div style="font-size:72px;font-weight:900;color:${lc};letter-spacing:-4px;line-height:1">${li.cur.level}</div>
+      <div style="font-size:18px;font-weight:800;color:rgba(255,255,255,.85);margin-top:4px">${li.cur.title}</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.3);margin-top:2px">${totalExp.toLocaleString('de-DE')} EXP gesamt</div>
+      <div style="margin-top:20px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:11px;color:rgba(255,255,255,.4)">${li.inLevel} EXP</span>
+          ${li.nxt?`<span style="font-size:11px;color:rgba(255,255,255,.4)">${li.needed-li.inLevel} bis Lvl ${li.nxt.level}</span>`:''}
+        </div>
+        <div class="exp-track" style="height:6px">
+          <div class="exp-fill" style="width:${li.progress*100}%;background:linear-gradient(90deg,${lc},#c084fc);box-shadow:0 0 12px ${lc}88"></div>
+        </div>
+        ${li.nxt?`<div style="display:flex;justify-content:space-between;margin-top:6px">
+          <span style="font-size:10px;color:${lc};font-weight:700">LVL ${li.cur.level}</span>
+          <span style="font-size:10px;color:rgba(255,255,255,.25);font-weight:700">LVL ${li.nxt.level} – ${li.nxt.title}</span>
+        </div>`:``}
+      </div>
+    </div>
+  </div>`;
+
+  h+=`<div class="stat3">`;
+  [[`🔥`,`Streak`,streak>0?streak+'d':'–','#F59E0B'],
+   [`⚡`,`Ø EXP/Tag`,sorted.length?Math.round(totalExp/sorted.length):'–','#818CF8'],
+   [`🎯`,`Ø Score`,avg??'–',avg?scoreColor(avg):'rgba(255,255,255,.25)']
+  ].forEach(([ic,l,v,c])=>{
+    h+=`<div class="stat3c"><div style="font-size:20px;margin-bottom:4px">${ic}</div>
+      <div style="font-size:18px;font-weight:900;color:${c};letter-spacing:-.5px">${v}</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.25);margin-top:2px;text-transform:uppercase;letter-spacing:.5px">${l}</div></div>`;
+  });
+  h+=`</div>`;
+
+  // Achievements
+  h+=`<div class="sec">Achievements (${unlockedAch.length}/${ACHIEVEMENTS.length})</div>`;
+  ACHIEVEMENTS.forEach(a=>{
+    const unlocked=a.check(days,streak,friends.length);
+    h+=`<div class="ach-card ${unlocked?'':'ach-locked'}">
+      <div class="ach-icon" style="background:${unlocked?'rgba(129,140,248,.15)':'rgba(255,255,255,.05)'}">
+        ${a.icon}
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:${unlocked?'rgba(255,255,255,.85)':'rgba(255,255,255,.3)'}">${a.title}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.3);margin-top:1px">${a.desc}</div>
+      </div>
+      ${unlocked?'<div style="margin-left:auto;font-size:16px">✓</div>':''}
+    </div>`;
+  });
+
+  // All levels
+  h+=`<div class="sec" style="margin-top:4px">Alle Level</div>`;
+  LEVELS.forEach(lvl=>{
+    const isActive=lvl.level===li.cur.level;
+    const isDone=totalExp>=lvl.minExp;
+    const c=lvlColor(lvl.level);
+    h+=`<div class="level-row" style="${isActive?`background:${c}10;border-color:${c}22`:''}">
+      <div class="level-badge" style="background:${isDone?c+'22':'rgba(255,255,255,.04)'};border-color:${isDone?c+'55':'rgba(255,255,255,.08)'};color:${isDone?c:'rgba(255,255,255,.2)'}">
+        ${lvl.level}
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:${isDone?'rgba(255,255,255,.8)':'rgba(255,255,255,.25)'}">${lvl.title}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.2)">${lvl.minExp.toLocaleString('de-DE')} EXP</div>
+      </div>
+      ${isActive?`<div style="font-size:10px;font-weight:800;color:${c};background:${c}18;padding:3px 10px;border-radius:99px">Aktuell</div>`:isDone?'<div style="font-size:14px">✓</div>':''}
+    </div>`;
+  });
+  h+=`</div>`;
+  document.getElementById('content').innerHTML=h;
+}
+
+function renderHistory(){
+  const today=todayStr();
+  const sorted=Object.keys(days).sort((a,b)=>b.localeCompare(a));
+  const scores=sorted.slice(0,14).reverse().map(d=>calcScore(days[d])).filter(s=>s!=null);
+
+  let h=`<div style="padding:16px 16px 0;animation:fadeUp .3s ease">`;
+  if(scores.length>1){
+    h+=`<div class="card" style="margin-bottom:12px">
+      <div class="sec">Score-Verlauf</div>
+      ${sparklineHTML(scores)}
+      <div style="display:flex;justify-content:space-between;margin-top:12px">
+        ${[['Min',Math.min(...scores)],['Ø',Math.round(scores.reduce((a,b)=>a+b,0)/scores.length)],['Max',Math.max(...scores)]].map(([l,v])=>
+          `<div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.25);margin-bottom:2px">${l}</div>
+          <div style="font-size:16px;font-weight:900;color:${scoreColor(v)}">${v}</div></div>`).join('')}
+      </div>
+    </div>`;
+  }
+  h+=`<div class="sec">${sorted.length} Einträge</div>`;
+  if(!sorted.length) h+=`<div class="empty"><div class="ei">📋</div><p>Noch keine Einträge.</p></div>`;
+  sorted.forEach(date=>{
+    const entry=days[date];
+    const sc=calcScore(entry);
+    const col=sc!=null?scoreColor(sc):'#334155';
+    const exp=calcExp(entry,sc);
+    const tags=CATS.map(c=>entry[c.id]?`<span class="htag" style="background:${c.color}18;color:${c.color}">${c.icon} ${entry[c.id]}${c.unit}</span>`:'').filter(Boolean).join('');
+    h+=`<div class="hcard">
+      ${sc!=null?`<div class="hbadge" style="background:${col}18;border-color:${col}44;color:${col}">${sc}</div>`:''}
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+          <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5)">${date===today?'Heute':fmtDate(date)}</span>
+          <span style="font-size:11px;font-weight:800;color:#818CF8">+${exp} EXP</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">${tags}</div>
+        ${entry.note?`<div class="hnote">"${entry.note}"</div>`:''}
+      </div>
+    </div>`;
+  });
+  h+=`</div>`;
+  document.getElementById('content').innerHTML=h;
+}
+
+function renderFriends(){
+  const myCode=userProfile?.friend_code||'–';
+  let h=`<div style="padding:16px 16px 0;animation:fadeUp .3s ease">`;
+
+  // My code
+  h+=`<div class="sec">Mein Freundes-Code</div>
+  <div class="code-box" onclick="copyCode()">
+    <div class="code-val">${myCode}</div>
+    <div class="code-hint">Tippen zum Kopieren · Teile diesen Code mit Freunden</div>
+  </div>`;
+
+  // Add friend
+  h+=`<div class="sec">Freund hinzufügen</div>
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;gap:8px">
+      <input class="cat-input" id="friend-code-input" placeholder="Freundes-Code eingeben" type="text"
+        style="flex:1;text-transform:uppercase;letter-spacing:2px" maxlength="6"/>
+      <button onclick="addFriend()" style="padding:10px 16px;background:linear-gradient(135deg,#6C63FF,#8B5CF6);border:none;border-radius:9px;color:#fff;font-weight:800;font-size:14px;cursor:pointer;flex-shrink:0">+</button>
+    </div>
+  </div>`;
+
+  // Friends list
+  h+=`<div class="sec">${friends.length} Freunde</div>`;
+  if(!friends.length){
+    h+=`<div class="empty"><div class="ei">👥</div><p style="color:rgba(255,255,255,.3)">Noch keine Freunde.<br>Teile deinen Code!</p></div>`;
+  }
+  friends.forEach(f=>{
+    const prof=f.profiles;
+    if(!prof) return;
+    const li=getLevelInfo(prof.total_exp||0);
+    const lc=lvlColor(li.cur.level);
+    const bg=avatarBg(prof.username?.charCodeAt(0)||0);
+    h+=`<div class="friend-card">
+      <div class="friend-avatar" style="background:${bg}22;border:1.5px solid ${bg}44;color:${bg}">${prof.avatar||'😎'}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:800;color:rgba(255,255,255,.85);margin-bottom:3px">${prof.username||'Unbekannt'}</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span style="font-size:11px;color:${lc};font-weight:700">Lvl ${li.cur.level} · ${li.cur.title}</span>
+          ${prof.streak>0?`<span style="font-size:11px;color:#F59E0B">🔥${prof.streak}d</span>`:''}
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,.3);margin-top:2px">${(prof.total_exp||0).toLocaleString('de-DE')} EXP</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;color:rgba(255,255,255,.25)">EXP</div>
+        <div style="font-size:16px;font-weight:900;color:${lc}">${(prof.total_exp||0).toLocaleString('de-DE')}</div>
+      </div>
+    </div>`;
+  });
+
+  // Settings
+  h+=`<div class="sec" style="margin-top:8px">Einstellungen</div>
+  <div class="card">
+    <div class="toggle-row">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.8)">Im Leaderboard erscheinen</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.3);margin-top:2px">Andere können dich im Ranking sehen</div>
+      </div>
+      <button class="toggle ${inLeaderboard?'on':'off'}" id="lb-toggle" onclick="toggleLeaderboard()"></button>
+    </div>
+    <div style="margin-top:14px">
+      <button onclick="doLogout()" style="width:100%;padding:12px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);border-radius:10px;color:#F87171;font-size:13px;font-weight:700;cursor:pointer">Ausloggen</button>
+    </div>
+  </div>`;
+
+  h+=`</div>`;
+  document.getElementById('content').innerHTML=h;
+}
+
+function copyCode(){
+  const code=userProfile?.friend_code||'';
+  if(navigator.clipboard) navigator.clipboard.writeText(code).then(()=>showToast('✓ Code kopiert!'));
+  else showToast(code);
+}
+
+async function addFriend(){
+  const code=document.getElementById('friend-code-input').value.trim().toUpperCase();
+  if(code.length<4){showToast('Bitte Code eingeben',true);return;}
+  if(code===userProfile?.friend_code){showToast('Das bist du selbst 😄',true);return;}
+
+  const{data:prof,error}=await sb.from('profiles').select('id,username').eq('friend_code',code).single();
+  if(error||!prof){showToast('Code nicht gefunden',true);return;}
+
+  // Check already friends
+  const{data:existing}=await sb.from('friendships').select('id').eq('user_id',currentUser.id).eq('friend_id',prof.id).single();
+  if(existing){showToast('Bereits befreundet!',true);return;}
+
+  await sb.from('friendships').insert([
+    {user_id:currentUser.id,friend_id:prof.id},
+    {user_id:prof.id,friend_id:currentUser.id},
+  ]);
+  showToast(`✓ ${prof.username} hinzugefügt!`);
+  await loadFriends();
+  renderFriends();
+}
+
+async function toggleLeaderboard(){
+  inLeaderboard=!inLeaderboard;
+  await sb.from('profiles').update({in_leaderboard:inLeaderboard}).eq('id',currentUser.id);
+  const btn=document.getElementById('lb-toggle');
+  if(btn){btn.className='toggle '+(inLeaderboard?'on':'off');}
+  showToast(inLeaderboard?'✓ Im Ranking sichtbar':'Aus Ranking entfernt');
+}
+
+async function renderLeaderboard(){
+  document.getElementById('content').innerHTML=`<div style="padding:16px;animation:fadeUp .3s ease"><div class="sec">Lädt…</div></div>`;
+
+  // Get all public profiles sorted by EXP
+  const{data:allProfs}=await sb.from('profiles').select('*').eq('in_leaderboard',true).order('total_exp',{ascending:false}).limit(50);
+  // Get top streaks
+  const{data:streakProfs}=await sb.from('profiles').select('*').eq('in_leaderboard',true).order('streak',{ascending:false}).limit(50);
+
+  const rankEmoji=i=>i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
+
+  let h=`<div style="padding:16px 16px 0;animation:fadeUp .3s ease">`;
+
+  // EXP Leaderboard
+  h+=`<div class="sec">🏆 EXP Leaderboard</div>`;
+  if(!allProfs?.length){
+    h+=`<div class="empty"><div class="ei">🏆</div><p>Noch keine Einträge.</p></div>`;
+  }
+  allProfs?.forEach((prof,i)=>{
+    const li=getLevelInfo(prof.total_exp||0);
+    const lc=lvlColor(li.cur.level);
+    const isMe=prof.id===currentUser?.id;
+    const bg=avatarBg(prof.username?.charCodeAt(0)||0);
+    h+=`<div class="lb-card" style="${isMe?`border-color:${lc}44;background:${lc}08`:''}">
+      <div class="lb-rank" style="color:${i<3?'#F59E0B':'rgba(255,255,255,.3)'}">${rankEmoji(i)}</div>
+      <div class="lb-avatar" style="background:${bg}22;color:${bg}">${prof.avatar||'😎'}</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800;color:${isMe?lc:'rgba(255,255,255,.8)'}">${prof.username||'Unbekannt'}${isMe?' (Du)':''}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.3)">Lvl ${li.cur.level} · ${li.cur.title}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:15px;font-weight:900;color:${lc}">${(prof.total_exp||0).toLocaleString('de-DE')}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.25)">EXP</div>
+      </div>
+    </div>`;
+  });
+
+  // Streak Leaderboard
+  h+=`<div class="sec" style="margin-top:16px">🔥 Streak Leaderboard</div>`;
+  streakProfs?.filter(p=>p.streak>0).forEach((prof,i)=>{
+    const isMe=prof.id===currentUser?.id;
+    const bg=avatarBg(prof.username?.charCodeAt(0)||0);
+    const li=getLevelInfo(prof.total_exp||0);
+    const lc=lvlColor(li.cur.level);
+    h+=`<div class="lb-card" style="${isMe?`border-color:#F59E0B44;background:rgba(245,158,11,.05)`:''}">
+      <div class="lb-rank" style="color:${i<3?'#F59E0B':'rgba(255,255,255,.3)'}">${rankEmoji(i)}</div>
+      <div class="lb-avatar" style="background:${bg}22;color:${bg}">${prof.avatar||'😎'}</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800;color:${isMe?'#F59E0B':'rgba(255,255,255,.8)'}">${prof.username||'Unbekannt'}${isMe?' (Du)':''}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.3)">Lvl ${li.cur.level}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:15px;font-weight:900;color:#F59E0B">🔥${prof.streak}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.25)">Tage</div>
+      </div>
+    </div>`;
+  });
+
+  if(!inLeaderboard){
+    h+=`<div style="margin-top:12px;padding:12px 14px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.15);border-radius:12px;font-size:12px;color:rgba(248,113,113,.8);text-align:center">
+      Du bist gerade nicht im Ranking sichtbar. Ändern unter Freunde → Einstellungen.
+    </div>`;
+  }
+
+  h+=`</div>`;
+  document.getElementById('content').innerHTML=h;
+}
+
+function setView(v){
+  currentView=v;
+  updateHeader();
+  if(v==='today')       renderToday();
+  else if(v==='level')  renderLevel();
+  else if(v==='history')renderHistory();
+  else if(v==='friends')renderFriends();
+  else if(v==='leaderboard') renderLeaderboard();
+  document.getElementById('content').scrollTop=0;
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+async function init(){
+  renderAuth('login');
+
+  sb.auth.onAuthStateChange(async(event,session)=>{
+    if(session?.user){
+      currentUser=session.user;
+      document.getElementById('auth-ui').style.display='none';
+      document.getElementById('main-ui').style.display='flex';
+      await loadProfile(session.user);
+      draft=days[todayStr()]?{...days[todayStr()]}:{};
+      updateHeader();
+      renderToday();
+    } else {
+      document.getElementById('main-ui').style.display='none';
+      document.getElementById('auth-ui').style.display='';
+      renderAuth('login');
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
